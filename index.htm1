@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lammytrades - AI Deriv Bot</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
+body{background:#0B1120;color:white;padding:15px;padding-bottom:50px}
+.header{background:linear-gradient(90deg,#7C3AED,#10B981);padding:20px;border-radius:15px;text-align:center}
+.header h1{font-size:26px;letter-spacing:1px}
+.header p{opacity:.9;font-size:13px;margin-top:5px}
+.badge{display:inline-block;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:bold;margin-top:10px}
+.offline{background:#EF4444}.live{background:#10B981}
+.card{background:#1E293B;padding:16px;border-radius:15px;margin-top:15px}
+.card h3{margin-bottom:12px;font-size:16px;color:#A78BFA}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:#0F172A;padding:12px;border-radius:10px;text-align:center}
+.stat b{font-size:20px;display:block}
+.stat span{font-size:12px;opacity:.7}
+label{font-size:13px;opacity:.8;display:block;margin-top:12px;margin-bottom:5px}
+input,select{width:100%;padding:12px;border-radius:10px;border:none;background:#0F172A;color:white;font-size:15px;outline:none}
+button{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:12px}
+.btn-green{background:#10B981;color:white}
+.btn-red{background:#EF4444;color:white;margin-top:8px}
+.btn-purple{background:#7C3AED;color:white}
+.btn-yellow{background:#F59E0B;color:black}
+.premium{border:2px solid #F59E0B;background:linear-gradient(135deg,#1E293B,#3B2A00)}
+.log{background:#000;height:180px;overflow-y:auto;padding:10px;border-radius:10px;font-size:12px;font-family:monospace;margin-top:10px}
+.signal{font-size:14px;line-height:1.8}
+.disclaimer{font-size:11px;opacity:.6;text-align:center;margin-top:20px;line-height:1.6}
+.lock{color:#F59E0B;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>LAMMYTRADES BOT</h1>
+  <p>AI Deriv Bot • EMA + RSI + Digit Analysis</p>
+  <span class="badge offline" id="statusBadge">OFFLINE</span>
+  <span class="badge" style="background:#F59E0B;color:black" id="planBadge">FREE PLAN</span>
+</div>
+
+<div class="card">
+  <h3>📊 Stats</h3>
+  <div class="grid">
+    <div class="stat"><b id="balance">$0.00</b><span>Balance</span></div>
+    <div class="stat"><b id="profit">$0.00</b><span>Total Profit</span></div>
+    <div class="stat"><b id="winrate">0%</b><span>Win Rate</span></div>
+    <div class="stat"><b id="winsloss">0W / 0L</b><span>Wins / Losses</span></div>
+  </div>
+</div>
+
+<div class="card premium">
+  <h3>⭐ Premium - KES 500 / 30 Days</h3>
+  <p style="font-size:13px;opacity:.85">Unlock Martingale & Fibonacci + No Limits</p>
+  <label>M-Pesa Number (254...)</label>
+  <input id="payPhone" placeholder="254712345678">
+  <button class="btn-yellow" onclick="payPremium()">PAY WITH M-PESA</button>
+  <p id="payMsg" style="font-size:13px;margin-top:8px"></p>
+</div>
+
+<div class="card">
+  <h3>⚙️ Trading Settings</h3>
+  <label>Deriv API Token (Use Demo First)</label>
+  <input id="token" placeholder="Paste your Deriv API token">
+  
+  <label>Market</label>
+  <select id="market">
+    <option value="R_100">Volatility 100 (1s)</option>
+    <option value="R_75">Volatility 75 (1s)</option>
+    <option value="R_50">Volatility 50 (1s)</option>
+    <option value="R_10">Volatility 10</option>
+    <option value="frxEURUSD">EUR/USD</option>
+  </select>
+
+  <label>Contract Type</label>
+  <select id="contractType">
+    <option value="DIGITDIFF">Digit Differs</option>
+    <option value="DIGITEVEN">Digit Even</option>
+    <option value="DIGITODD">Digit Odd</option>
+    <option value="DIGITOVER">Digit Over</option>
+    <option value="DIGITUNDER">Digit Under</option>
+    <option value="CALL">Rise</option>
+    <option value="PUT">Fall</option>
+  </select>
+
+  <label>Barrier / Prediction (0-9)</label>
+  <input id="barrier" type="number" value="9" min="0" max="9">
+
+  <label>Base Stake ($)</label>
+  <input id="stake" type="number" value="0.35" step="0.01">
+
+  <label>Strategy</label>
+  <select id="strategy" onchange="checkLock()">
+    <option value="fixed">Fixed - FREE</option>
+    <option value="dalembert">D'Alembert - FREE</option>
+    <option value="oscar">Oscar's Grind - FREE</option>
+    <option value="martingale">Martingale - PREMIUM 🔒</option>
+    <option value="fibonacci">Fibonacci - PREMIUM 🔒</option>
+  </select>
+  <p id="lockMsg" class="lock"></p>
+
+  <label>Take Profit ($)</label>
+  <input id="tp" type="number" value="10">
+  <label>Stop Loss ($)</label>
+  <input id="sl" type="number" value="10">
+
+  <button class="btn-green" onclick="startBot()">▶ START BOT</button>
+  <button class="btn-red" onclick="stopBot()">■ STOP BOT</button>
+</div>
+
+<div class="card">
+  <h3>🤖 AI Signal</h3>
+  <div class="signal">
+    Last Price: <b id="lastPrice">-</b><br>
+    Last Digit: <b id="lastDigit">-</b><br>
+    RSI (14): <b id="rsi">-</b><br>
+    EMA 5 / 20: <b id="ema">-</b><br>
+    Signal: <b id="signal">Waiting...</b><br>
+    Trades: <b id="tradeCount">0</b>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📜 Live Trade History</h3>
+  <div class="log" id="log">Bot ready. Paste token and press START...<br></div>
+</div>
+
+<div class="card">
+  <h3>💸 Request Refund (7 Days, Max 10 Trades)</h3>
+  <label>M-Pesa Number</label>
+  <input id="refundPhone" placeholder="254712345678">
+  <label>Reason</label>
+  <input id="refundReason" placeholder="e.g. Bot not working">
+  <button class="btn-purple" onclick="requestRefund()">REQUEST REFUND</button>
+  <p id="refundMsg" style="font-size:13px;margin-top:8px"></p>
+</div>
+
+<p class="disclaimer">Trading is risky. Past results do not guarantee future profit. You can lose your stake. Never trade with school fees or rent. Test on Demo for 7 days.<br><br>© 2026 Lammytrades.com</p>
+
+<script>
+let ws, isRunning=false, balance=0, totalProfit=0, wins=0, losses=0;
+let prices=[], digits=[], currentStake=0.35, fibIndex=0, lossStreak=0, tradeCount=0, tickCount=0, lastTradeTime=0;
+let isPremium=false, userPhone="";
+const fib=[1,1,2,3,5,8,13,21];
+
+function log(msg){
+  const el=document.getElementById('log');
+  const time=new Date().toLocaleTimeString();
+  el.innerHTML += `[${time}] ${msg}<br>`;
+  el.scrollTop=el.scrollHeight;
+}
+function updateStats(){
+  document.getElementById('balance').textContent='$'+balance.toFixed(2);
+  document.getElementById('profit').textContent='$'+totalProfit.toFixed(2);
+  document.getElementById('winsloss').textContent=wins+'W / '+losses+'L';
+  let total=wins+losses;
+  document.getElementById('winrate').textContent= total? Math.round(wins/total*100)+'%':'0%';
+  document.getElementById('tradeCount').textContent=tradeCount;
+}
+function checkLock(){
+  const s=document.getElementById('strategy').value;
+  const msg=document.getElementById('lockMsg');
+  if((s==='martingale'||s==='fibonacci') && !isPremium){
+    msg.textContent='🔒 Premium Locked. Pay KES 500 to unlock.';
+  } else msg.textContent='';
+}
+function calcRSI(){
+  if(prices.length<15) return 50;
+  let gains=0, lossesR=0;
+  for(let i=prices.length-14;i<prices.length;i++){
+    let diff=prices[i]-prices[i-1];
+    if(diff>0) gains+=diff; else lossesR+=-diff;
+  }
+  let rs=gains/(lossesR||1);
+  return (100 - (100/(1+rs))).toFixed(1);
+}
+function calcEMA(period){
+  if(prices.length<period) return prices[prices.length-1]||0;
+  let k=2/(period+1), ema=prices[prices.length-period];
+  for(let i=prices.length-period+1;i<prices.length;i++) ema=prices[i]*k+ema*(1-k);
+  return ema;
+}
+function getNextStake(lastResult){
+  let base=parseFloat(document.getElementById('stake').value)||0.35;
+  let strat=document.getElementById('strategy').value;
+  if(strat==='fixed') return base;
+  if(strat==='martingale') return lastResult==='win'? base : currentStake*2;
+  if(strat==='dalembert'){
+    if(lastResult==='win') return Math.max(base, currentStake-base);
+    else return currentStake+base;
+  }
+  if(strat==='fibonacci'){
+    if(lastResult==='win'){ fibIndex=Math.max(0,fibIndex-2); }
+    else { fibIndex=Math.min(fib.length-1,fibIndex+1); }
+    return base*fib[fibIndex];
+  }
+  if(strat==='oscar'){
+    if(lastResult==='win') return currentStake+base;
+    else return currentStake;
+  }
+  return base;
+}
+function startBot(){
+  const token=document.getElementById('token').value.trim();
+  const strat=document.getElementById('strategy').value;
+  if(!token){ alert('Weka Deriv API Token kwanza!'); return; }
+  if((strat==='martingale'||strat==='fibonacci') && !isPremium){ alert('Premium Locked! Lipa KES 500 kwanza.'); return; }
+  if(isRunning) return;
+  isRunning=true;
+  currentStake=parseFloat(document.getElementById('stake').value)||0.35;
+  document.getElementById('statusBadge').textContent='LIVE';
+  document.getElementById('statusBadge').className='badge live';
+  log('Bot started... Connecting to Deriv...');
+  ws=new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+  ws.onopen=()=>{ ws.send(JSON.stringify({authorize:token})); };
+  ws.onmessage=(msg)=>{
+    const data=JSON.parse(msg.data);
+    if(data.authorize){
+      if(data.authorize.error){ log('Auth failed: '+data.authorize.error.message); stopBot(); return; }
+      balance=parseFloat(data.authorize.balance)||0;
+      updateStats();
+      log('Connected! Balance $'+balance.toFixed(2));
+      ws.send(JSON.stringify({ticks:document.getElementById('market').value, subscribe:1}));
+    }
+    if(data.tick){
+      let price=parseFloat(data.tick.quote);
+      prices.push(price);
+      if(prices.length>100) prices.shift();
+      let digitStr=price.toString().split('.')[1]||'0';
+      let digit=parseInt(digitStr.slice(-1));
+      digits.push(digit);
+      if(digits.length>100) digits.shift();
+      document.getElementById('lastPrice').textContent=price.toFixed(5);
+      document.getElementById('lastDigit').textContent=digit;
+      let rsi=calcRSI();
+      let ema5=calcEMA(5), ema20=calcEMA(20);
+      document.getElementById('rsi').textContent=rsi;
+      document.getElementById('ema').textContent=ema5.toFixed(2)+' / '+ema20.toFixed(2);
+      let signal = ema5>ema20 ? 'UPTREND ⬆️' : 'DOWNTREND ⬇️';
+      document.getElementById('signal').textContent=signal+' | RSI '+rsi;
+      tickCount++;
+      // Trade every 6th tick
+      if(tickCount%6===0){
+        // Cooldown check
+        if(lossStreak>=3 && Date.now()-lastTradeTime<30000){
+          log('Cooldown: 3 losses, waiting 30s...');
+          return;
+        }
+        placeTrade(price);
+      }
+    }
+    if(data.buy){
+      if(data.buy.error){ log('Buy error: '+data.buy.error.message); }
+      else { log('Trade placed: $'+currentStake+' Contract ID '+data.buy.contract_id); tradeCount++; updateStats(); }
+    }
+    if(data.proposal_open_contract){
+      // handled via sell check below
+    }
+    if(data.contract){
+      // contract update
+    }
+  };
+  ws.onerror=()=>{ log('Connection error'); };
+}
+function placeTrade(price){
+  let type=document.getElementById('contractType').value;
+  let barrier=document.getElementById('barrier').value;
+  let req={buy:1, price:currentStake,
